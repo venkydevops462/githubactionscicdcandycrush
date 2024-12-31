@@ -28,3 +28,19 @@ jobs:
 
       - name: Scan Files with Trivy
         run: trivy fs . > trivyfs.txt
+
+      - name: Docker Build and Push
+        run: |
+          # Build the Docker image
+          docker build -t candycrush .
+          
+          # Tag the image
+          docker tag candycrush venkydetect123/candycrush:latest
+          
+          # Log in to Docker Hub
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+          
+          # Push the image to Docker Hub
+          docker push venkydetect123/candycrush:latest
+        env:
+          DOCKER_CLI_ACI: 1
