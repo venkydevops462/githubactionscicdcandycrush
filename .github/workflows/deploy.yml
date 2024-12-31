@@ -1,73 +1,26 @@
-name: Build, Analyze, Scan
+name: Build
 
 on:
   push:
     branches:
       - main
 
+
 jobs:
-  build-analyze-scan:
-    name: Build, Analyze, and Scan
-    runs-on: [self-hosted]
+  build:
+    name: Build
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
         with:
-          fetch-depth: 0  # Ensures full clone for accurate analysis
-
-      # Ensure unzip is installed (fix for earlier error)
-      - name: Install prerequisites
-        run: sudo apt-get update && sudo apt-get install -y unzip
-
-      - name: Build and Analyze with SonarQube
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          
-      - name: Install npm dependencies
-        run: npm install
-
-      - name: Trivy File Scan
-        run: trivy fs . > trivyfs.txt
-
-      - name: Docker Build and Push
-        run: |
-          docker build -t candycrush .
-          docker tag candycrush sevenajay/candycrush:latest
-          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker push sevenajay/candycrush:latest
-        env:
-          DOCKER_CLI_ACI: 1
-
-      - name: Trivy Image Scan
-        run: trivy image sevenajay/candycrush:latest > trivyimage.txt
-
-  deploy:
-    needs: build-analyze-scan
-    runs-on: [self-hosted]
-    steps:
-      - name: Docker Pull Image
-        run: docker pull sevenajay/candycrush:latest
-
-      - name: Trivy Image Scan
-        run: trivy image sevenajay/candycrush:latest > trivyimagedeploy.txt
-
-      - name: Deploy to Container
-        run: docker run -d --name game -p 3000:3000 sevenajay/candycrush:latest
-
-      - name: Update kubeconfig
-        run: aws eks --region ap-south-1 update-kubeconfig --name EKS_CLOUD
-
-      - name: Deploy to Kubernetes
-        run: kubectl apply -f deployment-service.yml
-
-      - name: Send a Slack Notification
-        if: always()
-        uses: act10ns/slack@v1
-        with:
-          status: ${{ job.status }}
-          steps: ${{ toJson(steps) }}
-          channel: '#githubactions-eks'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      # - uses: sonarsource/sonarqube-scan-action@master
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # If you wish to fail your job when the Quality Gate is red, uncomment the
+      # following lines. This would typically be used to fail a deployment.
+      # - uses: sonarsource/sonarqube-quality-gate-action@master
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
