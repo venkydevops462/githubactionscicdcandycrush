@@ -1,4 +1,4 @@
-name: Build
+name: Build, Analyze, Scan, and Deploy
 
 on:
   push:
@@ -6,41 +6,55 @@ on:
       - main
 
 jobs:
-  build:
-    name: Build
+  build-analyze-scan:
+    name: Build and Analyze
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis relevancy
 
-      - name: Run SonarQube Scan
+      - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
+      - name: NPM Install
+        run: npm install
+
       - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-          sudo mv ./bin/trivy /usr/local/bin/trivy
+          sudo mv ./bin/trivy /usr/local/bin/
 
-      - name: Scan Files with Trivy
-        run: trivy fs . > trivyfs.txt
+      - name: Trivy File Scan
+        run: trivy fs . > trivy-fs-scan.txt
 
       - name: Docker Build and Push
         run: |
-          # Build the Docker image
           docker build -t candycrush .
-          
-          # Tag the image
           docker tag candycrush venkydetect123/candycrush:latest
-          
-          # Log in to Docker Hub
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
-          
-          # Push the image to Docker Hub
           docker push venkydetect123/candycrush:latest
         env:
           DOCKER_CLI_ACI: 1
+
+      - name: Trivy Image Scan
+        run: trivy image venkydetect123/candycrush:latest > trivy-image-scan-build.txt
+
+  deploy:
+    needs: build-analyze-scan
+    runs-on: self-hosted # Use your self-hosted runner label here
+
+    steps:
+      - name: Pull the Docker Image
+        run: docker pull venkydetect123/candycrush:latest
+
+      - name: Trivy Image Scan
+        run: trivy image venkydetect123/candycrush:latest > trivy-image-scan-deploy.txt
+
+      - name: Run the Container
+        run: docker run -d --name ticgame -p 3000:3000 venkydetect123/candycrush:latest
