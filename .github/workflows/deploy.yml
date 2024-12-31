@@ -21,16 +21,10 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # Uncomment the following lines if you want to fail the job based on Quality Gate
-      # - name: Check SonarQube Quality Gate
-      #   uses: sonarsource/sonarqube-quality-gate-action@master
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: NPM Install
-        run: npm install # Add your specific npm install command here
-
-      - name: Install Trivy and Scan Files
+      - name: Install Trivy
         run: |
-          trivy fs . > trivyfs.txt
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+          sudo mv trivy /usr/local/bin/
+
+      - name: Scan Files with Trivy
+        run: trivy fs . > trivyfs.txt
